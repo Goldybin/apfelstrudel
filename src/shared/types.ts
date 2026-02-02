@@ -1,0 +1,122 @@
+// Shared types between server and client
+
+export type Role = "system" | "user" | "assistant" | "tool";
+
+export interface ToolCallDescriptor {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface Message {
+  role: Role;
+  content: string | null;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: ToolCallDescriptor[];
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface ToolResult {
+  id: string;
+  output: string;
+  error?: boolean;
+}
+
+export interface LLMClient {
+  generate(
+    messages: Message[],
+    tools?: ToolDefinition[]
+  ): Promise<{ content: string | null; toolCalls?: ToolCallDescriptor[] }>;
+}
+
+// WebSocket message types
+
+export interface ClientChatMessage {
+  type: "chat";
+  message: string;
+}
+
+export interface ClientPatternUpdate {
+  type: "pattern_update";
+  code: string;
+}
+
+export interface ClientTransport {
+  type: "transport";
+  action: "play" | "stop";
+}
+
+export interface ClientSyncRequest {
+  type: "sync_request";
+}
+
+export type ClientMessage = ClientChatMessage | ClientPatternUpdate | ClientTransport | ClientSyncRequest;
+
+export interface ServerAgentThinking {
+  type: "agent_thinking";
+  content: string;
+}
+
+export interface ServerAgentResponse {
+  type: "agent_response";
+  content: string;
+  toolCalls?: ToolCallDescriptor[];
+}
+
+export interface ServerToolStart {
+  type: "tool_start";
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface ServerToolResult {
+  type: "tool_result";
+  name: string;
+  output: string;
+  error?: boolean;
+}
+
+export interface ServerSetPattern {
+  type: "set_pattern";
+  code: string;
+  autoplay?: boolean;
+}
+
+export interface ServerTransportControl {
+  type: "transport_control";
+  action: "play" | "stop";
+}
+
+export interface ServerSetCps {
+  type: "set_cps";
+  cps: number;
+}
+
+export interface ServerSyncState {
+  type: "sync_state";
+  pattern: string;
+  playing: boolean;
+  cps: number;
+}
+
+export interface ServerError {
+  type: "error";
+  message: string;
+}
+
+export type ServerMessage =
+  | ServerAgentThinking
+  | ServerAgentResponse
+  | ServerToolStart
+  | ServerToolResult
+  | ServerSetPattern
+  | ServerTransportControl
+  | ServerSetCps
+  | ServerSyncState
+  | ServerError;
