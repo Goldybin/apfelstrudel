@@ -10,6 +10,7 @@ export interface RunnerOptions {
   requestTimeoutMs?: number;
   broadcast: (message: ServerMessage) => void;
   getState: () => { pattern: string; playing: boolean; cps: number };
+  updateState?: (updates: { pattern?: string; playing?: boolean; cps?: number }) => void;
 }
 
 /**
@@ -21,14 +22,24 @@ export async function runAgent(userMessage: string, options: RunnerOptions): Pro
   const maxSteps = options.maxSteps ?? 16;
 
   // Initialize app state for tools
+  const initialState = options.getState();
   const appState: AppState = {
-    currentPattern: options.getState().pattern,
-    isPlaying: options.getState().playing,
-    cps: options.getState().cps,
+    currentPattern: initialState.pattern,
+    isPlaying: initialState.playing,
+    cps: initialState.cps,
     evalErrors: [],
     broadcast: options.broadcast as (message: unknown) => void,
   };
   setAppState(appState);
+
+  // Sync tool-side state changes back to server
+  const syncState = () => {
+    options.updateState?.({
+      pattern: appState.currentPattern,
+      playing: appState.isPlaying,
+      cps: appState.cps,
+    });
+  };
 
   // Build LLM client
   const client = buildClient(provider, model);
@@ -85,6 +96,7 @@ export async function runAgent(userMessage: string, options: RunnerOptions): Pro
 
         try {
           const result = await handler(call.arguments);
+          syncState();
           messages.push({ role: "tool", content: result.output, tool_call_id: call.id });
           options.broadcast({
             type: "tool_result",

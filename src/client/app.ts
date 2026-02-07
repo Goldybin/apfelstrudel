@@ -541,6 +541,8 @@ chatForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const message = chatInput.value.trim();
   if (message) {
+    // Sync current editor content to server before agent runs
+    send({ type: "pattern_update", code: getEditorCode() });
     addMessage("user", message);
     send({ type: "chat", message });
     chatInput.value = "";

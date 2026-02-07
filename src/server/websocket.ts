@@ -57,6 +57,15 @@ export function getState() {
 }
 
 /**
+ * Update server state. Called by tools via AppState setters.
+ */
+export function updateState(updates: { pattern?: string; playing?: boolean; cps?: number }) {
+  if (updates.pattern !== undefined) currentPattern = updates.pattern;
+  if (updates.playing !== undefined) isPlaying = updates.playing;
+  if (updates.cps !== undefined) cps = updates.cps;
+}
+
+/**
  * WebSocket handlers for Bun.serve
  */
 export const websocketHandlers = {
@@ -161,6 +170,7 @@ async function handleChat(userMessage: string): Promise<void> {
       requestTimeoutMs: timeoutMs,
       broadcast,
       getState,
+      updateState,
     });
   } catch (err) {
     console.error("[Agent] Error:", err);
@@ -169,25 +179,4 @@ async function handleChat(userMessage: string): Promise<void> {
       message: err instanceof Error ? err.message : "Agent error",
     });
   }
-}
-
-/**
- * Update pattern from tool
- */
-export function setPattern(code: string): void {
-  currentPattern = code;
-}
-
-/**
- * Update transport state from tool
- */
-export function setPlaying(playing: boolean): void {
-  isPlaying = playing;
-}
-
-/**
- * Update tempo from tool
- */
-export function setCps(newCps: number): void {
-  cps = newCps;
 }
