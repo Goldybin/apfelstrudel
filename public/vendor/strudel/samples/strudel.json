@@ -1,86 +1,84 @@
 {
   "_base": "/vendor/strudel/samples/",
-  "ApfelKit": {
-    "bass": [
-      "bass.wav"
-    ],
-    "bd": [
-      "bd.wav",
-      "bd2.wav"
-    ],
-    "bell": [
-      "bell.wav"
-    ],
-    "cb": [
-      "cb.wav"
-    ],
-    "ch": [
-      "hh.wav",
-      "hh2.wav"
-    ],
-    "cl": [
-      "cl.wav"
-    ],
-    "cp": [
-      "cp.wav"
-    ],
-    "crash": [
-      "crash.wav"
-    ],
-    "fx": [
-      "fx.wav"
-    ],
-    "hh": [
-      "hh.wav",
-      "hh2.wav"
-    ],
-    "ht": [
-      "ht.wav"
-    ],
-    "lead": [
-      "lead.wav"
-    ],
-    "lt": [
-      "lt.wav"
-    ],
-    "ma": [
-      "ma.wav"
-    ],
-    "mt": [
-      "mt.wav"
-    ],
-    "noise": [
-      "noise.wav"
-    ],
-    "oh": [
-      "oh.wav"
-    ],
-    "organ": [
-      "organ.wav"
-    ],
-    "pad": [
-      "pad.wav"
-    ],
-    "perc": [
-      "perc.wav"
-    ],
-    "pluck": [
-      "pluck.wav"
-    ],
-    "ride": [
-      "ride.wav"
-    ],
-    "rim": [
-      "rim.wav"
-    ],
-    "sd": [
-      "sd.wav",
-      "sd2.wav"
-    ],
-    "shaker": [
-      "shaker.wav"
-    ]
-  },
+  "ApfelKit_bass": [
+    "bass.wav"
+  ],
+  "ApfelKit_bd": [
+    "bd.wav",
+    "bd2.wav"
+  ],
+  "ApfelKit_bell": [
+    "bell.wav"
+  ],
+  "ApfelKit_cb": [
+    "cb.wav"
+  ],
+  "ApfelKit_ch": [
+    "hh.wav",
+    "hh2.wav"
+  ],
+  "ApfelKit_cl": [
+    "cl.wav"
+  ],
+  "ApfelKit_cp": [
+    "cp.wav"
+  ],
+  "ApfelKit_crash": [
+    "crash.wav"
+  ],
+  "ApfelKit_fx": [
+    "fx.wav"
+  ],
+  "ApfelKit_hh": [
+    "hh.wav",
+    "hh2.wav"
+  ],
+  "ApfelKit_ht": [
+    "ht.wav"
+  ],
+  "ApfelKit_lead": [
+    "lead.wav"
+  ],
+  "ApfelKit_lt": [
+    "lt.wav"
+  ],
+  "ApfelKit_ma": [
+    "ma.wav"
+  ],
+  "ApfelKit_mt": [
+    "mt.wav"
+  ],
+  "ApfelKit_noise": [
+    "noise.wav"
+  ],
+  "ApfelKit_oh": [
+    "oh.wav"
+  ],
+  "ApfelKit_organ": [
+    "organ.wav"
+  ],
+  "ApfelKit_pad": [
+    "pad.wav"
+  ],
+  "ApfelKit_perc": [
+    "perc.wav"
+  ],
+  "ApfelKit_pluck": [
+    "pluck.wav"
+  ],
+  "ApfelKit_ride": [
+    "ride.wav"
+  ],
+  "ApfelKit_rim": [
+    "rim.wav"
+  ],
+  "ApfelKit_sd": [
+    "sd.wav",
+    "sd2.wav"
+  ],
+  "ApfelKit_shaker": [
+    "shaker.wav"
+  ],
   "bass": [
     "bass.wav"
   ],

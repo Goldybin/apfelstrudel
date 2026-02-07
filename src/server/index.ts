@@ -64,6 +64,18 @@ function getContentType(path: string): string {
       return "image/svg+xml";
     case "ico":
       return "image/x-icon";
+    case "wav":
+      return "audio/wav";
+    case "mp3":
+      return "audio/mpeg";
+    case "ogg":
+      return "audio/ogg";
+    case "ttf":
+      return "font/ttf";
+    case "woff":
+      return "font/woff";
+    case "woff2":
+      return "font/woff2";
     default:
       return "application/octet-stream";
   }

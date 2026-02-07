@@ -70,19 +70,18 @@ let samplesLoaded = false;
 async function ensureSamplesLoaded(): Promise<void> {
   if (samplesLoaded) return;
   try {
-    // Load local samples (always available offline)
     await samples("/vendor/strudel/samples/strudel.json");
     console.log("[Samples] Loaded local samples");
-
-    // Load vendored Dirt-Samples manifest (audio fetched on-demand from GitHub)
+  } catch (err) {
+    console.error("[Samples] Failed to load local samples:", err);
+  }
+  try {
     await samples("/vendor/strudel/samples/dirt-samples.json");
     console.log("[Samples] Loaded Dirt-Samples manifest");
-
-    samplesLoaded = true;
   } catch (err) {
-    console.error("[Samples] Failed to load samples:", err);
-    samplesLoaded = true; // don't retry; local samples may still work
+    console.error("[Samples] Failed to load Dirt-Samples:", err);
   }
+  samplesLoaded = true;
 }
 
 // State
