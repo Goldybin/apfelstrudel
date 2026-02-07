@@ -311,9 +311,15 @@ export const listSamplesDefinition: ToolDefinition = {
 // Common sample banks reference (includes Dirt-Samples from GitHub loaded at runtime)
 const SAMPLE_BANKS: Record<string, string> = {
   default:
-    "bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, perc, ride, crash, bass, lead, pluck, pad, bell, organ, fx, noise",
+    "bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, perc, ride, crash, bass, lead, pluck, pad, bell, organ, fx, noise (always available locally)",
+  ApfelKit:
+    "Local drum kit (always available offline): bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, perc, ride, crash, bass, lead, pluck, pad, bell, organ, fx, noise. Use with .bank(\"ApfelKit\")",
+  RolandTR808:
+    "Classic TR-808 drum machine (from Dirt-Samples, requires internet on first load): bd, sd, hh, oh, cp, cl, rim, lt, mt, ht. Use with .bank(\"RolandTR808\")",
+  RolandTR909:
+    "Classic TR-909 drum machine (from Dirt-Samples, requires internet on first load): bd, sd, hh, oh, cp, cl, rim, lt, mt, ht. Use with .bank(\"RolandTR909\")",
   "808":
-    "TR-808 individual sounds: CB, CH, CL, CP, MA, RS. Use with .n() for variants",
+    "TR-808 individual sounds (Dirt-Samples): CB, CH, CL, CP, MA, RS. Use with .n() for variants",
   "808bd":
     "TR-808 bass drums (25 variations). Use .n(0-24) to select",
   "808sd":
@@ -322,48 +328,34 @@ const SAMPLE_BANKS: Record<string, string> = {
     "TR-808 open hi-hats (5 variations). Use .n(0-4)",
   "808hc":
     "TR-808 closed hi-hats (5 variations). Use .n(0-4)",
-  "808lt":
-    "TR-808 low toms (5 variations). Use .n(0-4)",
-  "808mt":
-    "TR-808 mid toms (5 variations). Use .n(0-4)",
-  "808ht":
-    "TR-808 high toms (5 variations). Use .n(0-4)",
-  "808cy":
-    "TR-808 cymbals (25 variations). Use .n(0-24)",
   "909":
-    "TR-909 bass drum",
-  RolandTR909:
-    "Classic TR-909 drum machine bank: bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, ride, crash",
-  RolandTR808:
-    "Classic TR-808 drum machine bank: bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, ride, crash",
-  ApfelKit:
-    "Local kit: bd, sd, hh/ch, oh, cp, cl, rim, lt, mt, ht, cb, ma, shaker, perc, ride, crash, bass, lead, pluck, pad, bell, organ, fx, noise",
-  bd: "Bass drums (24 variations from Dirt-Samples). Use .n(0-23)",
-  sd: "Snare drums. Use .n() for variants",
-  hh: "Closed hi-hats. Use .n() for variants",
-  cp: "Hand claps. Use .n() for variants",
-  cr: "Crash cymbals (6 variations)",
-  cb: "Cowbell",
-  casio: "Casio keyboard: high, low, noise",
-  arpy: "Arpeggiated synth notes (11 variations)",
-  bass: "Bass sounds (4 variations). Also bass1, bass2, bass3",
-  feel: "Drum kit: BD, HH, Sd + sub",
-  clubkick: "Club kick drums (5 variations)",
-  east: "Eastern percussion: taiko, shime, ohkawa",
-  electro1: "Electro drum kit: kick, snare, hh, ride, crash, hits, perc",
-  fm: "Classic breakbeats and vocal samples",
-  future: "Futuristic kicks and percussion",
-  gab: "Gabber/hardcore kicks and sounds (10 variations)",
-  glitch: "Glitch percussion: BD, CB, FX, HH, OH, SN",
-  birds: "Bird song recordings (10 samples)",
-  bottle: "Bottle percussion (13 samples)",
-  amencutup: "Amen break sliced into 32 pieces",
-  drumtraks: "Sequential Drumtraks: cabasa, claps, cowbell, crash, hats, kick, ride, rimshot, snare, tambourine, toms",
-  metal: "Metal/industrial percussion",
-  jazz: "Jazz drum kit samples",
-  gm: "General MIDI sounds (use with .n() for variants)",
-  house: "House music drum samples",
-  techno: "Techno percussion",
+    "TR-909 bass drum (Dirt-Samples)",
+  bd: "Bass drums — 2 local variants, 24+ from Dirt-Samples. Use .n(0-23)",
+  sd: "Snare drums — 2 local variants, more from Dirt-Samples. Use .n() for variants",
+  hh: "Closed hi-hats — 2 local variants. Use .n() for variants",
+  cp: "Hand claps — 1 local variant. Use .n() for variants",
+  cr: "Crash cymbals (Dirt-Samples, 6 variations)",
+  cb: "Cowbell — 1 local variant",
+  casio: "Casio keyboard (Dirt-Samples): high, low, noise",
+  arpy: "Arpeggiated synth notes (Dirt-Samples, 11 variations)",
+  bass: "Bass sounds — 1 local variant, more from Dirt-Samples",
+  feel: "Drum kit (Dirt-Samples): BD, HH, Sd + sub",
+  clubkick: "Club kick drums (Dirt-Samples, 5 variations)",
+  east: "Eastern percussion (Dirt-Samples): taiko, shime, ohkawa",
+  electro1: "Electro drum kit (Dirt-Samples): kick, snare, hh, ride, crash, hits, perc",
+  fm: "Classic breakbeats and vocal samples (Dirt-Samples)",
+  future: "Futuristic kicks and percussion (Dirt-Samples)",
+  gab: "Gabber/hardcore kicks and sounds (Dirt-Samples, 10 variations)",
+  glitch: "Glitch percussion (Dirt-Samples): BD, CB, FX, HH, OH, SN",
+  birds: "Bird song recordings (Dirt-Samples, 10 samples)",
+  bottle: "Bottle percussion (Dirt-Samples, 13 samples)",
+  amencutup: "Amen break sliced into 32 pieces (Dirt-Samples)",
+  drumtraks: "Sequential Drumtraks (Dirt-Samples): cabasa, claps, cowbell, crash, hats, kick, ride, rimshot, snare, tambourine, toms",
+  metal: "Metal/industrial percussion (Dirt-Samples)",
+  jazz: "Jazz drum kit samples (Dirt-Samples)",
+  gm: "General MIDI sounds (Dirt-Samples, use with .n() for variants)",
+  house: "House music drum samples (Dirt-Samples)",
+  techno: "Techno percussion (Dirt-Samples)",
 };
 
 export const listSamplesTool: ToolHandler = async (args) => {

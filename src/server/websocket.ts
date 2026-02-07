@@ -16,13 +16,11 @@ let currentPattern = `// Welcome to Apfelstrudel! 🥧
 // Press Play or ask the AI to get started!
 
 stack(
-  // drums
-  s("bd [~ bd] sd [bd ~ ]")
-    .bank("RolandTR808"),
+  // drums (local ApfelKit samples)
+  s("bd [~ bd] sd [bd ~ ]"),
 
   s("[~ hh]*4")
-    .gain(.6)
-    .bank("RolandTR808"),
+    .gain(.6),
 
   // bass
   note("<c2 [c2 eb2] f2 [f2 ab2]>")
