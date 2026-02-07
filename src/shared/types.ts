@@ -56,7 +56,20 @@ export interface ClientSyncRequest {
   type: "sync_request";
 }
 
-export type ClientMessage = ClientChatMessage | ClientPatternUpdate | ClientTransport | ClientSyncRequest;
+export interface ClientLog {
+  type: "client_log";
+  level: "error" | "warn" | "info";
+  message: string;
+  stack?: string;
+  context?: Record<string, unknown>;
+}
+
+export type ClientMessage =
+  | ClientChatMessage
+  | ClientPatternUpdate
+  | ClientTransport
+  | ClientSyncRequest
+  | ClientLog;
 
 export interface ServerAgentThinking {
   type: "agent_thinking";

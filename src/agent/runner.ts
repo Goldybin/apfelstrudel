@@ -43,13 +43,18 @@ export async function runAgent(userMessage: string, options: RunnerOptions): Pro
 
   // Agent loop
   for (let step = 0; step < maxSteps; step++) {
-    let response;
+    let response: { content: string | null; toolCalls?: ToolCallDescriptor[] } | undefined;
     try {
       response = await withTimeout(() => client.generate(messages, toolDefinitions), options.requestTimeoutMs);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      options.broadcast({ type: "error", message: `LLM error: ${errMsg}` });
-      return `Error: ${errMsg}`;
+      const timeoutInfo = options.requestTimeoutMs ? ` after ${options.requestTimeoutMs}ms` : "";
+      const displayMsg =
+        errMsg === "Request timeout"
+          ? `LLM request timed out${timeoutInfo}. Increase APFELSTRUDEL_TIMEOUT_MS if needed.`
+          : errMsg;
+      options.broadcast({ type: "error", message: `LLM error: ${displayMsg}` });
+      return `Error: ${displayMsg}`;
     }
 
     // Handle tool calls

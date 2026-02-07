@@ -51,7 +51,8 @@ export const myToolHandler: ToolHandler = async (
 
 ### Reference Tools (`reference.ts`)
 - `get_strudel_help` - Query embedded documentation
-- `list_samples` - List available sample banks
+- `list_samples` - Quick reference for common sample banks
+- `list_instruments` - Dynamic discovery of all available instruments from Dirt-Samples library
 
 ### Task Tools (`todo.ts`)
 - `manage_todo` - Track tasks/ideas for user

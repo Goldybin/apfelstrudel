@@ -4,7 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Apfelstrudel - Live Coding with AI</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥧</text></svg>">
   <link rel="stylesheet" href="/styles.css">
+  <!-- Polyfill AudioWorklet for browsers/contexts that lack it (e.g. non-secure origins) -->
+  <script>
+    if (typeof AudioWorkletNode === 'undefined') {
+      window.AudioWorkletNode = class AudioWorkletNode {
+        constructor() { throw new Error('AudioWorklet not supported in this context'); }
+        static get length() { return 0; }
+      };
+    }
+    // Stub audioWorklet on AudioContext if missing (Safari HTTP, older WebKit)
+    if (typeof AudioContext !== 'undefined' && !AudioContext.prototype.audioWorklet) {
+      Object.defineProperty(AudioContext.prototype, 'audioWorklet', {
+        get() { return { addModule() { return Promise.resolve(); } }; }
+      });
+    }
+    if (typeof webkitAudioContext !== 'undefined' && !webkitAudioContext.prototype.audioWorklet) {
+      Object.defineProperty(webkitAudioContext.prototype, 'audioWorklet', {
+        get() { return { addModule() { return Promise.resolve(); } }; }
+      });
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -33,10 +54,7 @@
           <span class="status" id="status-indicator">Ready</span>
         </div>
         <div id="strudel-container">
-          <textarea id="code-editor" spellcheck="false">// Welcome to Apfelstrudel! 🥧
-// Type a pattern and press Play, or ask the AI for help
-
-s("bd sd").bank("RolandTR808")</textarea>
+          <div id="code-editor"></div>
         </div>
         <div id="visualization"></div>
       </section>
@@ -78,6 +96,11 @@ s("bd sd").bank("RolandTR808")</textarea>
       "@strudel/web": "/vendor/strudel/web.mjs",
       "@strudel/mini": "/vendor/strudel/mini.mjs",
       "@strudel/webaudio": "/vendor/strudel/webaudio.mjs",
+      "@strudel/core": "/vendor/strudel/core.mjs",
+      "@strudel/draw": "/vendor/strudel/draw.mjs",
+      "@strudel/codemirror": "/vendor/strudel/codemirror.mjs",
+      "superdough": "/vendor/strudel/superdough.mjs",
+      "supradough": "/vendor/strudel/supradough.mjs",
       "preact": "/vendor/preact/preact.mjs",
       "preact/hooks": "/vendor/preact/hooks.mjs",
       "htm": "/vendor/htm/htm.mjs"

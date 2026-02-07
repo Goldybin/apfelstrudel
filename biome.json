@@ -28,6 +28,6 @@
     }
   },
   "files": {
-    "ignore": ["node_modules", "dist", "*.lock", "*.lockb"]
+    "ignore": ["node_modules", "dist", "public/app.js", "public/app.js.map", "public/vendor", "src/client/app.js", "*.lock", "*.lockb"]
   }
 }

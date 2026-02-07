@@ -32,11 +32,11 @@ install-dev: install ## Install dev dependencies (same as install for bun)
 # =============================================================================
 
 .PHONY: dev
-dev: build-client ## Start development server with hot reload
+dev: build-client-dev ## Start development server with hot reload
 	$(BUN) run dev
 
 .PHONY: start
-start: build-client ## Start production server
+start: build-client-dev ## Start production server (debug bundle)
 	$(BUN) run start
 
 .PHONY: build
@@ -46,13 +46,19 @@ build: build-client ## Build for production
 .PHONY: build-client
 build-client: vendor ## Bundle frontend TypeScript to public/app.js
 	$(BUN) build src/client/app.ts \
-	  --outfile public/app.js \
+	  --outdir public \
+	  --entry-naming app.js \
 	  --target browser \
+	  --format esm \
+	  --packages=external \
 	  --minify \
+	  --sourcemap \
 	  --external:@strudel/web \
 	  --external:@strudel/mini \
 	  --external:@strudel/webaudio \
 	  --external:@strudel/core \
+	  --external:@strudel/draw \
+	  --external:@strudel/codemirror \
 	  --external:preact \
 	  --external:preact/hooks \
 	  --external:htm
@@ -60,13 +66,20 @@ build-client: vendor ## Bundle frontend TypeScript to public/app.js
 .PHONY: build-client-dev
 build-client-dev: vendor ## Bundle frontend TypeScript (unminified, with sourcemaps)
 	$(BUN) build src/client/app.ts \
-	  --outfile public/app.js \
+	  --outdir public \
+	  --entry-naming app.js \
 	  --target browser \
-	  --sourcemap \
+	  --format esm \
+	  --packages=external \
+	  --sourcemap=inline \
+	  --no-minify \
+	  --define DEV=true \
 	  --external:@strudel/web \
 	  --external:@strudel/mini \
 	  --external:@strudel/webaudio \
 	  --external:@strudel/core \
+	  --external:@strudel/draw \
+	  --external:@strudel/codemirror \
 	  --external:preact \
 	  --external:preact/hooks \
 	  --external:htm
@@ -121,19 +134,65 @@ clean-all: clean ## Remove all generated files including node_modules
 VENDOR_DIR := public/vendor
 
 .PHONY: vendor
-vendor: ## Download and vendor frontend dependencies
+vendor: ## Build and vendor frontend dependencies from local node_modules
 	@echo "Vendoring frontend dependencies..."
 	@mkdir -p $(VENDOR_DIR)/preact $(VENDOR_DIR)/htm $(VENDOR_DIR)/strudel
-	@echo "Downloading Preact..."
-	@curl -sL "https://esm.sh/preact@10.24.3?bundle" -o $(VENDOR_DIR)/preact/preact.mjs
-	@curl -sL "https://esm.sh/preact@10.24.3/hooks?bundle" -o $(VENDOR_DIR)/preact/hooks.mjs
-	@echo "Downloading HTM..."
-	@curl -sL "https://esm.sh/htm@3.1.1?bundle" -o $(VENDOR_DIR)/htm/htm.mjs
-	@echo "Downloading Strudel..."
-	@curl -sL "https://esm.sh/@strudel/web@1.3.0?bundle" -o $(VENDOR_DIR)/strudel/web.mjs
-	@curl -sL "https://esm.sh/@strudel/mini@1.3.0?bundle" -o $(VENDOR_DIR)/strudel/mini.mjs
-	@curl -sL "https://esm.sh/@strudel/webaudio@1.3.0?bundle" -o $(VENDOR_DIR)/strudel/webaudio.mjs
-	@curl -sL "https://esm.sh/@strudel/core@1.3.0?bundle" -o $(VENDOR_DIR)/strudel/core.mjs
+	@echo "Bundling Preact..."
+	$(BUN) build node_modules/preact/dist/preact.module.js \
+	  --target=browser --format=esm --minify --sourcemap \
+	  --outfile=$(VENDOR_DIR)/preact/preact.mjs
+	$(BUN) build node_modules/preact/hooks/dist/hooks.module.js \
+	  --target=browser --format=esm --minify --sourcemap \
+	  --outfile=$(VENDOR_DIR)/preact/hooks.mjs
+	@echo "Bundling HTM..."
+	$(BUN) build node_modules/htm/dist/htm.js \
+	  --target=browser --format=esm --minify --sourcemap \
+	  --outfile=$(VENDOR_DIR)/htm/htm.mjs
+	@echo "Bundling Strudel (web, mini, webaudio, core)..."
+	$(BUN) build node_modules/@strudel/web/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --outfile=$(VENDOR_DIR)/strudel/web.mjs
+	@# core.mjs: re-export everything from web.mjs plus the two symbols web.mjs doesn't export
+	@echo 'export * from "./web.mjs";' > $(VENDOR_DIR)/strudel/core.mjs
+	@echo 'const _logKey = "strudel.log";' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo 'let _lastMsg, _lastTime, _throttle = 1000;' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo 'export function logger(msg, type, data = {}) {' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  const now = performance.now();' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  if (_lastMsg === msg && now - _lastTime < _throttle) return;' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  _lastMsg = msg; _lastTime = now;' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  console.log("%c" + msg, "background-color:black;color:white;border-radius:15px");' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  if (typeof document !== "undefined" && typeof CustomEvent !== "undefined")' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '    document.dispatchEvent(new CustomEvent(_logKey, { detail: { message: msg, type, data } }));' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '}' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo 'export function errorLogger(err, context = "cyclist") {' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '  logger("[" + context + "] error: " + err.message, "error");' >> $(VENDOR_DIR)/strudel/core.mjs
+	@echo '}' >> $(VENDOR_DIR)/strudel/core.mjs
+	$(BUN) build node_modules/superdough/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --outfile=$(VENDOR_DIR)/strudel/superdough.mjs
+	$(BUN) build node_modules/supradough/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --outfile=$(VENDOR_DIR)/strudel/supradough.mjs
+	$(BUN) build node_modules/@strudel/draw/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --packages=external \
+	  --outfile=$(VENDOR_DIR)/strudel/draw.mjs
+	$(BUN) build node_modules/@strudel/mini/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --packages=external \
+	  --outfile=$(VENDOR_DIR)/strudel/mini.mjs
+	$(BUN) build node_modules/@strudel/webaudio/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --packages=external \
+	  --outfile=$(VENDOR_DIR)/strudel/webaudio.mjs
+	$(BUN) build node_modules/@strudel/codemirror/dist/index.mjs \
+	  --target=browser --format=esm --minify \
+	  --external=@strudel/core --external=@strudel/draw \
+	  --outfile=$(VENDOR_DIR)/strudel/codemirror.mjs
+	@# Copy Strudel assets (clockworker)
+	@mkdir -p $(VENDOR_DIR)/strudel/assets
+	@cp node_modules/@strudel/web/dist/assets/* $(VENDOR_DIR)/strudel/assets/ || true
+	@cp node_modules/@strudel/core/dist/assets/* $(VENDOR_DIR)/strudel/assets/ || true
 	@echo "✓ Vendored dependencies to $(VENDOR_DIR)/"
 
 .PHONY: vendor-clean

@@ -1,4 +1,5 @@
-import OpenAI from "openai";
+import OpenAI, { AzureOpenAI } from "openai";
+import { DefaultAzureCredential, getBearerTokenProvider } from "@azure/identity";
 import type { ChatCompletionMessageParam, ChatCompletionTool } from "openai/resources/chat/completions";
 import type { LLMClient, Message, ToolCallDescriptor, ToolDefinition } from "../shared/types.ts";
 
@@ -13,7 +14,7 @@ class EchoClient implements LLMClient {
 }
 
 /**
- * OpenAI-compatible client (works with OpenAI, Azure OpenAI, and compatible APIs)
+ * OpenAI-compatible client (works with OpenAI and compatible APIs)
  */
 export class OpenAIClient implements LLMClient {
   private client: OpenAI;
@@ -32,33 +33,62 @@ export class OpenAIClient implements LLMClient {
     messages: Message[],
     tools?: ToolDefinition[]
   ): Promise<{ content: string | null; toolCalls?: ToolCallDescriptor[] }> {
-    const completion = await this.client.chat.completions.create({
-      model: this.model,
-      messages: toOpenAIMessages(messages),
-      tools: tools?.map(toOpenAITool),
-      tool_choice: tools && tools.length ? "auto" : undefined,
-    });
-
-    const choice = completion.choices[0]?.message;
-    if (!choice) return { content: null };
-
-    const toolCalls = choice.tool_calls?.map((call) => {
-      let args: Record<string, unknown> = {};
-      try {
-        args = JSON.parse(call.function.arguments);
-      } catch {
-        args = {};
-      }
-      return {
-        id: call.id,
-        name: call.function.name,
-        arguments: args,
-      } satisfies ToolCallDescriptor;
-    });
-
-    const content = typeof choice.content === "string" ? choice.content : null;
-    return { content, toolCalls };
+    return generateFromOpenAI(this.client, this.model, messages, tools);
   }
+}
+
+/**
+ * Azure OpenAI client using the SDK's AzureOpenAI class (supports Entra ID auth)
+ */
+export class AzureOpenAIClient implements LLMClient {
+  private client: AzureOpenAI;
+  private model: string;
+
+  constructor(model: string, client: AzureOpenAI) {
+    this.client = client;
+    this.model = model;
+  }
+
+  async generate(
+    messages: Message[],
+    tools?: ToolDefinition[]
+  ): Promise<{ content: string | null; toolCalls?: ToolCallDescriptor[] }> {
+    return generateFromOpenAI(this.client, this.model, messages, tools);
+  }
+}
+
+async function generateFromOpenAI(
+  client: OpenAI,
+  model: string,
+  messages: Message[],
+  tools?: ToolDefinition[]
+): Promise<{ content: string | null; toolCalls?: ToolCallDescriptor[] }> {
+  const completion = await client.chat.completions.create({
+    model,
+    messages: toOpenAIMessages(messages),
+    tools: tools?.map(toOpenAITool),
+    tool_choice: tools?.length ? "auto" : undefined,
+  });
+
+  const choice = completion.choices[0]?.message;
+  if (!choice) return { content: null };
+
+  const toolCalls = choice.tool_calls?.map((call) => {
+    let args: Record<string, unknown> = {};
+    try {
+      args = JSON.parse(call.function.arguments);
+    } catch {
+      args = {};
+    }
+    return {
+      id: call.id,
+      name: call.function.name,
+      arguments: args,
+    } satisfies ToolCallDescriptor;
+  });
+
+  const content = typeof choice.content === "string" ? choice.content : null;
+  return { content, toolCalls };
 }
 
 /**
@@ -71,17 +101,26 @@ export function buildClient(provider: string, model: string): LLMClient {
 
   if (provider === "azure") {
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT;
-    const key = process.env.AZURE_OPENAI_KEY;
     const deployment = process.env.AZURE_OPENAI_DEPLOYMENT;
     const apiVersion = process.env.AZURE_OPENAI_API_VERSION ?? "2024-10-01-preview";
+    const key = process.env.AZURE_OPENAI_API_KEY;
 
-    if (!endpoint || !key || !deployment) {
-      throw new Error("Azure OpenAI requires AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_KEY, and AZURE_OPENAI_DEPLOYMENT");
+    if (!endpoint || !deployment) {
+      throw new Error("Azure OpenAI requires AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_DEPLOYMENT");
     }
 
-    return new OpenAIClient(deployment, key, `${endpoint}/openai/deployments/${deployment}`, {
-      "api-version": apiVersion,
-    });
+    let client: AzureOpenAI;
+    if (key) {
+      client = new AzureOpenAI({ apiKey: key, endpoint, deployment, apiVersion });
+    } else {
+      // No API key — use Entra ID / DefaultAzureCredential (managed identity, CLI, etc.)
+      const credential = new DefaultAzureCredential();
+      const scope = "https://cognitiveservices.azure.com/.default";
+      const tokenProvider = getBearerTokenProvider(credential, scope);
+      client = new AzureOpenAI({ azureADTokenProvider: tokenProvider, endpoint, deployment, apiVersion });
+    }
+
+    return new AzureOpenAIClient(deployment, client);
   }
 
   // Default: OpenAI

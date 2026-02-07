@@ -1,4 +1,5 @@
 import { toolDefinitions } from "../tools/index.ts";
+import { STRUDEL_REFERENCE } from "./strudel-doc.ts";
 
 /**
  * System prompt for the music assistant agent
@@ -20,33 +21,12 @@ Key guidelines:
 5. Suggest creative variations and teach concepts when relevant
 6. If something sounds wrong, help debug by checking the pattern syntax
 
-Strudel mini-notation basics:
-- Patterns are sequences: "bd sd" plays kick then snare
-- Square brackets group: "[bd sd] hh" plays kick+snare together, then hi-hat
-- Asterisk repeats: "hh*4" plays hi-hat 4 times per cycle
-- Angle brackets alternate: "<bd sd>" alternates each cycle
-- Comma stacks: "bd, hh*4" layers kick and hi-hats
-
-Common functions:
-- s("sound") - sample playback
-- note("pattern") - melodic notes
-- n("pattern") - select sample variant
-- .bank("name") - select sample bank
-- .gain(value) - volume (0-1)
-- .speed(value) - playback speed
-- .pan(value) - stereo position (-1 to 1)
-- .lpf(freq) - low-pass filter (Hz)
-- .hpf(freq) - high-pass filter (Hz)
-- .delay(amount) - echo effect (0-1)
-- .room(size) - reverb (0-1)
-- .jux(fn) - juxtapose left/right channels
-- .rev() - reverse pattern
-- .fast(n) / .slow(n) - speed up/slow down pattern
-
 When the user asks for changes, use tools to:
 1. Get current pattern
 2. Modify appropriately
 3. Set new pattern (with autoplay=true for immediate feedback)
 
-Keep responses concise and musical!`;
+Keep responses concise and musical!
+
+${STRUDEL_REFERENCE}`;
 }

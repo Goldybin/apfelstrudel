@@ -1,5 +1,9 @@
 # 🥧 Apfelstrudel
 
+<p align="center">
+  <img src="docs/icon-256.png" alt="Apfelstrudel icon" width="256" />
+</p>
+
 > Live coding music with AI assistance — powered by [Strudel.cc](https://strudel.cc) and [Bun](https://bun.sh)
 
 Apfelstrudel combines the expressive power of Strudel's live coding environment with an AI agent that can help you create, modify, and understand music patterns in real time.

@@ -6,14 +6,10 @@ applyTo: "**/*"
 
 When working on this codebase, detect the project type using these indicators:
 
-## Bun/TypeScript Project
-
-**Indicators:**
-- `package.json` with `"type": "module"`
-- `bun.lockb` lockfile
-- TypeScript files (`.ts`, `.tsx`)
-- `tsconfig.json` present
-- `Makefile` present
+- If `package.json` exists (or Bun is referenced) → apply `bun-typescript.instructions.md` and `frontend-bun.instructions.md`.
+- If `Dockerfile` exists and CI is publishing images → apply `docker-image.instructions.md`.
+- If `src/tools/` or `src/agent/` exists → apply `agent-tools.instructions.md`.
+- If `public/vendor/strudel/` exists → apply `strudel.instructions.md`.
 
 ## CRITICAL: Always Use Makefile
 
@@ -32,7 +28,7 @@ make clean        # Remove build artifacts
 
 **Type:** Bun web application with embedded strudel.cc REPL and AI agent
 
-**Frontend Stack:** Preact + HTM (vendored, no CDN)
+**Frontend Stack:** CodeMirror + Strudel (vendored, no CDN)
 
 **Key Backend Dependencies:**
 - `@strudel/web` - Strudel live coding environment  
@@ -47,7 +43,7 @@ src/
   tools/      # Agent tools
   shared/     # Shared types
 public/
-  vendor/     # Vendored JS dependencies (Preact, HTM, Strudel)
+  vendor/     # Vendored JS dependencies (Strudel, CodeMirror, Preact, HTM)
   index.html
   app.js
   styles.css

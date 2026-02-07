@@ -1,4 +1,4 @@
-import { websocketHandlers, type WebSocketData } from "./websocket.ts";
+import { websocketHandlers } from "./websocket.ts";
 
 const PORT = Number.parseInt(process.env.PORT ?? "3000", 10);
 
@@ -13,7 +13,7 @@ const server = Bun.serve({
 
     // Upgrade WebSocket requests
     if (url.pathname === "/ws") {
-      const success = server.upgrade<WebSocketData>(req, {
+      const success = server.upgrade(req, {
         data: { id: "" },
       });
       return success
@@ -54,7 +54,8 @@ function getContentType(path: string): string {
     case "css":
       return "text/css; charset=utf-8";
     case "js":
-      return "application/javascript; charset=utf-8";
+    case "mjs":
+      return "text/javascript; charset=utf-8";
     case "json":
       return "application/json";
     case "png":

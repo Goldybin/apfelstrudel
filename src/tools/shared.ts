@@ -36,7 +36,7 @@ export function truncateOutput(body: string, maxBytes: number): string {
   while (Buffer.byteLength(truncated, "utf8") > maxBytes - 20) {
     truncated = truncated.slice(0, -100);
   }
-  return truncated + "\n[truncated]";
+  return `${truncated}\n[truncated]`;
 }
 
 /**

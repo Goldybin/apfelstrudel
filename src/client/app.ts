@@ -8,7 +8,22 @@
  * This file is bundled to public/app.js via `make build-client`
  */
 
-import { initStrudel, controls, silence } from "@strudel/web";
+import { initStrudel, controls, hush, evalScope, transpiler, samples, webaudioOutput } from "@strudel/web";
+import { getAudioContext } from "@strudel/webaudio";
+
+// Dynamic import to prevent the entire app from failing if codemirror can't load.
+// The specifier is constructed via a variable to prevent Bun from hoisting it to a static import.
+// biome-ignore lint/suspicious/noExplicitAny: dynamically imported module
+let StrudelMirrorCtor: any = null;
+const _cmSpec = "@strudel/codemirror";
+const codemirrorReady = import(/* @vite-ignore */ _cmSpec)
+  .then((mod) => {
+    StrudelMirrorCtor = mod.StrudelMirror;
+    console.log("[Editor] @strudel/codemirror loaded");
+  })
+  .catch((err) => {
+    console.error("[Editor] Failed to load @strudel/codemirror:", err);
+  });
 
 // Types
 interface ServerMessage {
@@ -16,8 +31,11 @@ interface ServerMessage {
   [key: string]: unknown;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: CodeMirror EditorView type from vendored module
+type EditorView = any;
+
 // DOM Elements
-const codeEditor = document.getElementById("code-editor") as HTMLTextAreaElement;
+const editorRoot = document.getElementById("code-editor") as HTMLDivElement;
 const chatMessages = document.getElementById("chat-messages") as HTMLDivElement;
 const chatForm = document.getElementById("chat-form") as HTMLFormElement;
 const chatInput = document.getElementById("chat-input") as HTMLTextAreaElement;
@@ -27,6 +45,45 @@ const tempoInput = document.getElementById("tempo") as HTMLInputElement;
 const statusIndicator = document.getElementById("status-indicator") as HTMLSpanElement;
 const resizeHandle = document.getElementById("resize-handle") as HTMLDivElement;
 const editorPane = document.querySelector(".editor-pane") as HTMLElement;
+const vizContainer = document.getElementById("visualization") as HTMLDivElement;
+
+// Set up pianoroll canvas
+const vizCanvas = document.createElement("canvas");
+vizCanvas.id = "pianoroll-canvas";
+vizContainer.appendChild(vizCanvas);
+function resizeVizCanvas(): void {
+  const r = window.devicePixelRatio || 1;
+  vizCanvas.width = vizContainer.clientWidth * r;
+  vizCanvas.height = vizContainer.clientHeight * r;
+}
+resizeVizCanvas();
+window.addEventListener("resize", resizeVizCanvas);
+const drawCtx = vizCanvas.getContext("2d") as CanvasRenderingContext2D;
+
+function getAudioTime(): number {
+  const ctx = getAudioContext();
+  if (ctx.state === "running") return ctx.currentTime;
+  return performance.now() / 1000;
+}
+
+let samplesLoaded = false;
+async function ensureSamplesLoaded(): Promise<void> {
+  if (samplesLoaded) return;
+  try {
+    // Load local fallback samples first (always available offline)
+    await samples("/vendor/strudel/samples/strudel.json");
+    console.log("[Samples] Loaded local samples");
+
+    // Then load the full Dirt-Samples collection from GitHub (hundreds of kits)
+    await samples("github:tidalcycles/dirt-samples");
+    console.log("[Samples] Loaded Dirt-Samples from GitHub");
+
+    samplesLoaded = true;
+  } catch (err) {
+    console.error("[Samples] Failed to load samples:", err);
+    samplesLoaded = true; // don't retry; local samples may still work
+  }
+}
 
 // State
 let ws: WebSocket | null = null;
@@ -34,28 +91,65 @@ let isPlaying = false;
 let reconnectAttempts = 0;
 const maxReconnectAttempts = 5;
 
-// Strudel instance
+// Strudel + CodeMirror instances
 let strudelRepl: Awaited<ReturnType<typeof initStrudel>> | null = null;
+let strudelInitPromise: Promise<void> | null = null;
+let editorView: EditorView | null = null;
+// biome-ignore lint/suspicious/noExplicitAny: StrudelMirror type from vendored module
+let strudelMirror: any | null = null;
+
+/** Get the current code from the CodeMirror editor (or fallback textarea) */
+function getEditorCode(): string {
+  if (editorView?.state?.doc) return editorView.state.doc.toString();
+  const fb = document.getElementById("code-editor-fallback") as HTMLTextAreaElement | null;
+  return fb?.value ?? "";
+}
+
+/** Set the code in the CodeMirror editor (or fallback textarea) */
+function setEditorCode(code: string): void {
+  if (editorView) {
+    editorView.dispatch({
+      changes: { from: 0, to: editorView.state.doc.length, insert: code },
+    });
+    return;
+  }
+  const fb = document.getElementById("code-editor-fallback") as HTMLTextAreaElement | null;
+  if (fb) fb.value = code;
+}
 
 /**
- * Initialize Strudel REPL
+ * Initialize Strudel REPL and CodeMirror editor.
+ * Must be called after a user gesture so the AudioContext can be created.
  */
 async function initializeStrudel(): Promise<void> {
-  try {
-    strudelRepl = await initStrudel({
-      prebake: async () => {
-        // Import common patterns from vendored modules
-        const { mini, stack, cat } = await import("@strudel/mini");
-        const { samples } = await import("@strudel/webaudio");
-        return { mini, stack, cat, samples };
-      },
-    });
-    console.log("[Strudel] Initialized");
-    updateStatus("Ready");
-  } catch (err) {
-    console.error("[Strudel] Init error:", err);
-    updateStatus("Error", "error");
-  }
+  if (strudelRepl) return;
+  if (strudelInitPromise) return strudelInitPromise;
+  strudelInitPromise = (async () => {
+    try {
+      strudelRepl = await initStrudel({
+        editPattern: (pat: unknown) =>
+          (pat as { pianoroll: (opts: Record<string, unknown>) => unknown }).pianoroll({ ctx: drawCtx, cycles: 8, playhead: 0.5 }),
+        prebake: async () => {
+          const miniModule = await import("@strudel/mini");
+          const webaudioModule = await import("@strudel/webaudio");
+          const drawModule = await import("@strudel/draw");
+          await evalScope(miniModule, webaudioModule, drawModule);
+        },
+      });
+      console.log("[Strudel] Initialized");
+      updateStatus("Ready");
+    } catch (err) {
+      console.error("[Strudel] Init error:", err);
+      updateStatus("Error", "error");
+      strudelInitPromise = null;
+    }
+  })();
+  return strudelInitPromise;
+}
+
+/** Ensure strudel is initialized, triggering init on first user gesture. */
+async function ensureStrudel(): Promise<void> {
+  if (!strudelRepl) await initializeStrudel();
 }
 
 /**
@@ -81,7 +175,7 @@ function connectWebSocket(): void {
     // Attempt reconnection
     if (reconnectAttempts < maxReconnectAttempts) {
       reconnectAttempts++;
-      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+      const delay = Math.min(1000 * 2 ** reconnectAttempts, 10000);
       console.log(`[WS] Reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);
       setTimeout(connectWebSocket, delay);
     }
@@ -111,7 +205,7 @@ function handleServerMessage(message: ServerMessage): void {
     case "sync_state":
       // Sync state from server
       if (message.pattern) {
-        codeEditor.value = message.pattern as string;
+        setEditorCode(message.pattern as string);
       }
       if (typeof message.playing === "boolean") {
         isPlaying = message.playing;
@@ -124,8 +218,10 @@ function handleServerMessage(message: ServerMessage): void {
       break;
 
     case "set_pattern":
-      codeEditor.value = message.code as string;
-      highlightEditor();
+      setEditorCode(message.code as string);
+      if (message.autoplay) {
+        playPattern();
+      }
       break;
 
     case "transport_control":
@@ -143,6 +239,7 @@ function handleServerMessage(message: ServerMessage): void {
         if (strudelRepl && controls) {
           controls.setCps(message.cps);
         }
+        strudelMirror?.repl?.setCps?.(message.cps);
       }
       break;
 
@@ -150,23 +247,28 @@ function handleServerMessage(message: ServerMessage): void {
       evaluateCode(message.code as string);
       break;
 
+    case "agent_response":
     case "assistant_message":
       addMessage("assistant", message.content as string);
+      showThinking(false);
       break;
 
     case "assistant_chunk":
       appendToLastMessage(message.content as string);
       break;
 
+    case "tool_start":
     case "tool_use":
       addMessage("tool", `Using tool: ${message.name}`);
       break;
 
     case "tool_result": {
       const resultText =
-        typeof message.result === "string"
-          ? message.result
-          : JSON.stringify(message.result, null, 2);
+        typeof message.output === "string"
+          ? message.output
+          : typeof message.result === "string"
+            ? message.result
+            : JSON.stringify(message.output ?? message.result, null, 2);
       addMessage(
         "tool",
         `Result: ${resultText.slice(0, 100)}${resultText.length > 100 ? "..." : ""}`
@@ -174,6 +276,7 @@ function handleServerMessage(message: ServerMessage): void {
       break;
     }
 
+    case "agent_thinking":
     case "thinking":
       showThinking(true);
       break;
@@ -203,12 +306,35 @@ function send(message: Record<string, unknown>): void {
   }
 }
 
+function sendClientLog(level: "error" | "warn" | "info", message: string, stack?: string): void {
+  send({ type: "client_log", level, message, stack });
+}
+
 /**
  * Play the current pattern
  */
 async function playPattern(): Promise<void> {
-  const code = codeEditor.value;
+  await ensureStrudel();
 
+  // Prefer StrudelMirror — it has the Drawer+highlighting built in
+  if (strudelMirror) {
+    try {
+      await strudelMirror.evaluate(true);
+      isPlaying = true;
+      updatePlayButton();
+      updateStatus("Playing", "playing");
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[StrudelMirror] Eval error:", err);
+      sendClientLog("error", `Eval error: ${msg}`, err instanceof Error ? err.stack : undefined);
+      updateStatus("Error", "error");
+      return;
+    }
+  }
+
+  // Fallback: use initStrudel REPL (no highlighting)
+  const code = getEditorCode();
   if (strudelRepl) {
     try {
       await strudelRepl.evaluate(code);
@@ -216,28 +342,56 @@ async function playPattern(): Promise<void> {
       updatePlayButton();
       updateStatus("Playing", "playing");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error("[Strudel] Eval error:", err);
+      sendClientLog("error", `Eval error: ${msg}`, err instanceof Error ? err.stack : undefined);
       updateStatus("Error", "error");
     }
+  } else {
+    console.error("[Strudel] Not initialized, cannot play");
+    sendClientLog("error", "Strudel not initialized, cannot play");
   }
 }
 
 /**
  * Stop playback
  */
-function stopPattern(): void {
-  if (strudelRepl) {
-    silence();
-    isPlaying = false;
-    updatePlayButton();
-    updateStatus("Stopped");
+async function stopPattern(): Promise<void> {
+  await ensureStrudel();
+  if (strudelMirror) {
+    try {
+      await strudelMirror.stop();
+    } catch (err) {
+      console.error("[StrudelMirror] Stop error:", err);
+    }
   }
+  hush();
+  isPlaying = false;
+  updatePlayButton();
+  updateStatus("Stopped");
+  drawCtx.clearRect(0, 0, vizCanvas.width, vizCanvas.height);
 }
 
 /**
  * Evaluate code without changing play state
  */
 async function evaluateCode(code: string): Promise<void> {
+  await ensureStrudel();
+
+  // When using StrudelMirror, set the code in the editor first, then evaluate
+  if (strudelMirror) {
+    setEditorCode(code);
+    try {
+      await strudelMirror.evaluate(false);
+      updateStatus("Evaluated", "playing");
+    } catch (err) {
+      console.error("[StrudelMirror] Eval error:", err);
+      updateStatus("Error", "error");
+    }
+    return;
+  }
+
+  // Fallback
   if (strudelRepl) {
     try {
       await strudelRepl.evaluate(code);
@@ -271,16 +425,6 @@ function updateStatus(text: string, className?: string): void {
   if (className) {
     statusIndicator.classList.add(className);
   }
-}
-
-/**
- * Flash editor to indicate update
- */
-function highlightEditor(): void {
-  codeEditor.style.backgroundColor = "#1a2b3c";
-  setTimeout(() => {
-    codeEditor.style.backgroundColor = "";
-  }, 200);
 }
 
 type MessageRole = "user" | "assistant" | "tool" | "error";
@@ -367,7 +511,7 @@ btnPlay.addEventListener("click", () => {
   } else {
     playPattern();
     send({ type: "transport", action: "play" });
-    send({ type: "pattern_update", code: codeEditor.value });
+    send({ type: "pattern_update", code: getEditorCode() });
   }
 });
 
@@ -379,12 +523,13 @@ btnStop.addEventListener("click", () => {
 
 // Tempo change
 tempoInput.addEventListener("change", () => {
-  const bpm = parseInt(tempoInput.value, 10);
+  const bpm = Number.parseInt(tempoInput.value, 10);
   if (bpm >= 20 && bpm <= 300) {
     const cps = (bpm / 60) * 0.5;
     if (strudelRepl && controls) {
       controls.setCps(cps);
     }
+    strudelMirror?.repl?.setCps?.(cps);
     // Don't send to server - agent controls tempo
   }
 });
@@ -409,17 +554,8 @@ chatInput.addEventListener("keydown", (e) => {
   }
 });
 
-// Keyboard shortcuts
+// Keyboard shortcuts (global — CodeMirror handles its own Ctrl+Enter)
 document.addEventListener("keydown", (e) => {
-  // Ctrl/Cmd + Enter to play
-  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-    e.preventDefault();
-    if (!isPlaying) {
-      playPattern();
-      send({ type: "transport", action: "play" });
-      send({ type: "pattern_update", code: codeEditor.value });
-    }
-  }
   // Ctrl/Cmd + . to stop
   if ((e.ctrlKey || e.metaKey) && e.key === ".") {
     e.preventDefault();
@@ -451,6 +587,7 @@ document.addEventListener("mousemove", (e) => {
   if (newWidth >= minWidth && newWidth <= maxWidth) {
     editorPane.style.flex = "none";
     editorPane.style.width = `${newWidth}px`;
+    resizeVizCanvas();
   }
 });
 
@@ -465,6 +602,73 @@ document.addEventListener("mouseup", () => {
 
 // Initialize on load
 document.addEventListener("DOMContentLoaded", async () => {
-  await initializeStrudel();
+  const defaultCode = "// Welcome to Apfelstrudel! 🥧\n// Press Play or Ctrl+Enter, or ask the AI!\n\ns(\"bd sd\").bank(\"RolandTR808\")";
+
+  // Wait for dynamic codemirror import, then set up editor
+  await codemirrorReady;
+
+  if (StrudelMirrorCtor) {
+    try {
+      strudelMirror = new StrudelMirrorCtor({
+        root: editorRoot,
+        initialCode: defaultCode,
+        drawContext: drawCtx,
+        transpiler,
+        defaultOutput: webaudioOutput,
+        getTime: getAudioTime,
+        editPattern: (pat: unknown) =>
+          (pat as { pianoroll: (opts: Record<string, unknown>) => unknown }).pianoroll({ ctx: drawCtx, cycles: 8, playhead: 0.5 }),
+        prebake: async () => {
+          const miniModule = await import("@strudel/mini");
+          const webaudioModule = await import("@strudel/webaudio");
+          const drawModule = await import("@strudel/draw");
+          await evalScope(miniModule, webaudioModule, drawModule);
+        },
+      });
+      editorView = strudelMirror.editor;
+      strudelMirror.reconfigureExtension?.("isPatternHighlightingEnabled", true);
+      console.log("[Editor] StrudelMirror initialized");
+    } catch (err) {
+      console.error("[Editor] StrudelMirror init failed:", err);
+    }
+  }
+
+  // Fallback to textarea if CodeMirror didn't initialize
+  if (!editorView) {
+    console.warn("[Editor] Using textarea fallback");
+    const fallback = document.createElement("textarea");
+    fallback.id = "code-editor-fallback";
+    fallback.value = defaultCode;
+    fallback.style.cssText = "width:100%;height:100%;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-mono);font-size:0.9375rem;border:none;padding:0.5rem;resize:none;";
+    editorRoot.appendChild(fallback);
+  }
+
   connectWebSocket();
+
+  // Defer strudel init to first user interaction (AudioContext requires gesture)
+  const initOnGesture = () => {
+    const ctx = getAudioContext();
+    if (ctx.state === "suspended") {
+      ctx.resume().catch((err) => console.warn("[Audio] Resume failed", err));
+    }
+    ensureSamplesLoaded();
+    initializeStrudel();
+    document.removeEventListener("pointerdown", initOnGesture);
+    document.removeEventListener("keydown", initOnGesture);
+  };
+  document.addEventListener("pointerdown", initOnGesture);
+  document.addEventListener("keydown", initOnGesture);
+});
+
+// Forward browser errors to the server for debugging
+window.addEventListener("error", (event) => {
+  const message = event.message ?? "Unknown error";
+  const stack = event.error?.stack ?? String(event.error ?? "");
+  sendClientLog("error", message, stack);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  const reason = event.reason ?? "Unhandled rejection";
+  const message = typeof reason === "string" ? reason : JSON.stringify(reason);
+  sendClientLog("error", message);
 });
